@@ -10,10 +10,10 @@ class AWSConfig:
 
     region: str
     bucket: str
-
     access_key_id: str | None = None
     secret_access_key: str | None = None
     session_token: str | None = None
+    sagemaker_role_arn: str | None = None
 
 
 def get_aws_config() -> AWSConfig:
@@ -21,7 +21,7 @@ def get_aws_config() -> AWSConfig:
     bucket = os.environ.get("S3_BUCKET")
     if not bucket:
         raise RuntimeError(
-            "Missing DEFECTVISION_S3_BUCKET environment variable. "
+            "Missing S3_BUCKET environment variable. "
             "Set it to the target bucket name before running the upload script."
         )
 
@@ -33,7 +33,5 @@ def get_aws_config() -> AWSConfig:
         access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
         secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
         session_token=os.environ.get("AWS_SESSION_TOKEN"),
+        sagemaker_role_arn=os.environ.get("SAGEMAKER_EXEC_ROLE_ARN"),
     )
-
-# cfg = get_aws_config()
-# print(cfg)
