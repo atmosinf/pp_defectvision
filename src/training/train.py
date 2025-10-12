@@ -7,13 +7,14 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Sequence, Tuple
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import datasets, models, transforms
+from tqdm import tqdm
 
 
 def parse_args() -> argparse.Namespace:
@@ -149,8 +150,15 @@ def train_model(
 
             running_loss = 0.0
             running_corrects = 0
+            samples_seen = 0
 
-            for inputs, labels in dataloaders[phase]:
+            iterator = tqdm(
+                dataloaders[phase],
+                desc=f"{phase.capitalize()} {epoch + 1}/{epochs}",
+                leave=False,
+                unit="batch",
+            )
+            for inputs, labels in iterator:
                 inputs = inputs.to(device)
                 labels = labels.to(device)
 
@@ -165,8 +173,16 @@ def train_model(
                         loss.backward()
                         optimizer.step()
 
-                running_loss += loss.item() * inputs.size(0)
+                batch_size_actual = inputs.size(0)
+                running_loss += loss.item() * batch_size_actual
                 running_corrects += torch.sum(preds == labels.data).item()
+                samples_seen += batch_size_actual
+
+                current_acc = running_corrects / samples_seen if samples_seen else 0.0
+                iterator.set_postfix({
+                    "loss": loss.item(),
+                    "acc": f"{current_acc:.3f}",
+                })
 
             epoch_loss = running_loss / dataset_sizes[phase]
             epoch_acc = running_corrects / dataset_sizes[phase]
@@ -190,7 +206,12 @@ def train_model(
     return model, history
 
 
-def save_outputs(model: nn.Module, history: Dict[str, list], model_dir: Path) -> None:
+def save_outputs(
+    model: nn.Module,
+    history: Dict[str, list],
+    model_dir: Path,
+    class_names: Sequence[str],
+) -> None:
     model_path = model_dir / "model.pth"
     torch.save(model.state_dict(), model_path)
     print(f"Saved model to {model_path}")
@@ -201,6 +222,11 @@ def save_outputs(model: nn.Module, history: Dict[str, list], model_dir: Path) ->
     with history_path.open("w") as f:
         json.dump(history, f, indent=2)
     print(f"Saved metrics to {history_path}")
+
+    class_names_path = model_dir / "class_names.json"
+    with class_names_path.open("w") as f:
+        json.dump(list(class_names), f, indent=2)
+    print(f"Saved class names to {class_names_path}")
 
 
 def main() -> None:
@@ -238,7 +264,7 @@ def main() -> None:
     )
 
     model_dir = resolve_model_dir(args)
-    save_outputs(model, history, model_dir)
+    save_outputs(model, history, model_dir, class_names)
 
 
 if __name__ == "__main__":

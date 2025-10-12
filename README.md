@@ -76,3 +76,18 @@ python scripts/split_dataset.py \
    - Modify hyperparameters (`--batch-size`, `--learning-rate`, etc.) to experiment with different training configurations.
    - Add `--test-prefix s3://<bucket>/datasets/plantvillage/test` if you uploaded a held-out split.
    - Append `--no-spot` when you need on-demand instances (e.g. zero spot quota).
+    - The training script saves `model.pth`, `class_names.json`, and `training_metrics.json` in the model output directory.
+
+## Running local inference
+
+1. Download the trained artifacts from SageMaker (e.g. `model.pth` and `class_names.json`) into the repo.
+2. Score a directory or individual image:
+   ```bash
+   export PYTHONPATH=src
+   python scripts/run_inference.py \
+     models/model.pth \
+     data/sample_images \
+     --classes models/class_names.json \
+     --topk 5
+   ```
+   Adjust the paths to wherever you placed the downloaded artifacts. The script prints the top predictions and confidences per image.
