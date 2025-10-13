@@ -3,3 +3,6 @@ venv/
 data/
 __pycache__/
 *.pyc
+test_images/
+*.tar.gz
+*.pth
