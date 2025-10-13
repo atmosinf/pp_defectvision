@@ -59,31 +59,44 @@ class InferenceSession:
         self.class_names = list(class_names)
         self.transform = _build_transform()
 
+    def _predict_from_tensor(self, tensor: torch.Tensor, image_path: Path, topk: int) -> Prediction:
+        logits = self.model(tensor)
+        probs = F.softmax(logits, dim=1)
+        confs, indices = torch.topk(probs, k=min(topk, len(self.class_names)))
+
+        confs = confs.squeeze(0).cpu().tolist()
+        indices = indices.squeeze(0).cpu().tolist()
+        top_labels = [self.class_names[i] for i in indices]
+
+        return Prediction(
+            image_path=image_path,
+            label=top_labels[0],
+            confidence=confs[0],
+            topk_labels=top_labels,
+            topk_confidences=confs,
+        )
+
     @torch.inference_mode()
     def predict_batch(self, images: Iterable[Path], topk: int = 3) -> List[Prediction]:
         predictions: List[Prediction] = []
         for image_path in images:
             img = Image.open(image_path).convert("RGB")
             tensor = self.transform(img).unsqueeze(0).to(self.device)
-
-            logits = self.model(tensor)
-            probs = F.softmax(logits, dim=1)
-            confs, indices = torch.topk(probs, k=min(topk, len(self.class_names)))
-
-            confs = confs.squeeze(0).cpu().tolist()
-            indices = indices.squeeze(0).cpu().tolist()
-            top_labels = [self.class_names[i] for i in indices]
-
-            predictions.append(
-                Prediction(
-                    image_path=image_path,
-                    label=top_labels[0],
-                    confidence=confs[0],
-                    topk_labels=top_labels,
-                    topk_confidences=confs,
-                )
-            )
+            predictions.append(self._predict_from_tensor(tensor, image_path, topk))
         return predictions
+
+    @torch.inference_mode()
+    def predict_image(
+        self,
+        image: Image.Image,
+        *,
+        topk: int = 3,
+        image_path: Path | None = None,
+    ) -> Prediction:
+        """Score a single in-memory PIL image and return the top predictions."""
+        tensor = self.transform(image.convert("RGB")).unsqueeze(0).to(self.device)
+        resolved_path = image_path or Path(getattr(image, "filename", "in-memory-image"))
+        return self._predict_from_tensor(tensor, resolved_path, topk)
 
 
 def load_session(
