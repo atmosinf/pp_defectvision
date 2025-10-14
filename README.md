@@ -91,3 +91,44 @@ python scripts/split_dataset.py \
      --topk 5
    ```
    Adjust the paths to wherever you placed the downloaded artifacts. The script prints the top predictions and confidences per image.
+
+## Serving the FastAPI inference API
+
+1. Make sure your trained artifacts exist locally and that the environment variables point to them (for example in a `.env` file):
+   ```bash
+   DEFECTVISION_MODEL_PATH="/workspaces/pp_defectvision/models/.../model.pth"
+   DEFECTVISION_CLASS_NAMES_PATH="/workspaces/pp_defectvision/models/.../class_names.json"
+   DEFECTVISION_MODEL_NAME="resnet18"
+   ```
+2. Launch the API with Uvicorn, loading the `.env` file so the model paths resolve:
+   ```bash
+   uvicorn inference.api:app \
+     --host 0.0.0.0 \
+     --port 8000 \
+     --reload \
+     --env-file .env \
+     --app-dir src
+   ```
+   Using `--app-dir src` (or exporting `PYTHONPATH=src`) tells Uvicorn where to find the `inference` package. Drop `--reload` for production.
+   - Alternatively, `make serve-api` runs the same command (override `ENV_FILE` or `APP_PORT` as needed).
+3. Confirm the service is up:
+   ```bash
+   curl http://127.0.0.1:8000/healthz
+   ```
+   A 200 response with the class count indicates the model loaded correctly.
+4. Score an image through the `/predict` endpoint (quote the path if it contains spaces):
+   ```bash
+   curl -X POST "http://127.0.0.1:8000/predict?topk=3" \
+     -H "accept: application/json" \
+     -F 'file=@src/inference/test_images/Tomato_healthy__000bf685-b305-408b-91f4-37030f8e62db___GH_HL Leaf 308.1.JPG'
+   ```
+   Replace the sample image path with any leaf photo you want to score. The response returns the predicted label, confidence, and top-k alternatives.
+
+## Testing the inference API
+
+Install dev dependencies and run the integration test against the live model artifacts:
+```bash
+pip install -r requirements-dev.txt
+make test-integration
+```
+The test suite hits `/healthz` and `/predict` using a sample image to ensure the service loads the checkpoint and produces the expected prediction.
