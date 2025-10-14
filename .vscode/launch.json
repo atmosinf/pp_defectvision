@@ -1,0 +1,46 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Train Script",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/training/train.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            },
+            "args": [
+                "--train-dir", "${workspaceFolder}/data/splits/train",
+                "--val-dir",   "${workspaceFolder}/data/splits/val",
+                "--batch-size", "1"
+                // "--skip-dir-checks"  // include if you want to bypass the existence check
+            ]
+        },
+        {
+            "name": "Launch Sagemaker Training",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/launch_sagemaker_training.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            },
+            "args": [
+                "--train-prefix", "s3://defectvision-bucket/datasets/plantvillage/train",
+                "--val-prefix", "s3://defectvision-bucket/datasets/plantvillage/val",
+                "--instance-type", "ml.m5.xlarge",
+                "--framework-version", "2.2",
+                "--epochs", "5",
+                "--batch-size", "1",
+                "--no-spot"
+                // "--skip-dir-checks"  // include if you want to bypass the existence check
+            ]
+        }
+
+    ]
+}
