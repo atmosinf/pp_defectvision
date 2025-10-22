@@ -1,0 +1,9 @@
+[default.deploy.parameters]
+stack_name = "defectvision-api"
+region = "eu-north-1"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+fail_on_empty_changeset = false
+s3_bucket = "defectvision-sam-artifacts"
+s3_prefix = "lambda-deployments"
+image_repositories = []

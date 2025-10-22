@@ -185,6 +185,7 @@ The repository includes `sam/template.yaml`, letting you manage the Lambda + API
    ```
    Use `--guided` the first time to persist answers in `samconfig.toml`.
 3. After deployment, SAM outputs the API Gateway URL (see `Outputs.ApiUrl`) so you can hit `/healthz` and `/predict`.
+4. Update `sam/samconfig.toml` with your preferred defaults (stack name, artifact bucket, region). The template provides placeholders—ensure the bucket (`defectvision-sam-artifacts` in the file) exists in the target region or replace it with one you control.
 4. Optional: `sam local start-api --parameter-overrides ImageUri=...` spins up the container locally through the SAM runtime for parity testing.
 
 ### CI builds
