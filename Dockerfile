@@ -25,10 +25,8 @@ COPY src ./src
 COPY scripts ./scripts
 COPY docker/entrypoint.sh /entrypoint.sh
 
-# Copy models if they are included in the build context; otherwise users can mount or supply via env.
-COPY models ./models
-
 RUN chmod +x /entrypoint.sh
+RUN mkdir -p /app/models
 
 ENV PYTHONPATH=/app/src \
     PORT=8000

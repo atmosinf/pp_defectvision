@@ -148,7 +148,8 @@ docker run --rm -p 8000:8000 \
 ```
 
 - `docker run --env-file .env` injects each variable into the container; the file itself stays on the host. To have the entrypoint source a file, bind-mount it and set `ENV_FILE=/app/.env`.
-- By default the image looks for `models/model.pth` and `models/class_names.json` inside `/app/models`. Mount a different directory or override `DEFECTVISION_MODEL_PATH` / `DEFECTVISION_CLASS_NAMES_PATH` when you `docker run`.
+- The image does **not** bundle model artifacts. Provide them by either bind-mounting a local directory (e.g. `-v "$PWD/models/.../output:/app/models:ro"`) or exporting `DEFECTVISION_MODEL_S3_URI` / `DEFECTVISION_CLASS_NAMES_S3_URI` so the entrypoint can download from S3 at boot (requires valid AWS credentials in the container).
+- By default the API expects `/app/models/model.pth` and `/app/models/class_names.json`. Override `DEFECTVISION_MODEL_PATH` / `DEFECTVISION_CLASS_NAMES_PATH` if you store them elsewhere.
 - Override `PORT`, `APP_MODULE`, or `APP_DIR` if you need to customise the Uvicorn launch command.
 
 ### CI builds
