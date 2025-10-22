@@ -8,8 +8,10 @@ on:
 
 env:
   IMAGE_NAME: defectvision-api
+  LAMBDA_IMAGE_NAME: defectvision-api-lambda
   AWS_REGION: eu-north-1
   ECR_REPOSITORY: defectvision-api
+  LAMBDA_ECR_REPOSITORY: defectvision-api-lambda
 
 jobs:
   build:
@@ -55,5 +57,18 @@ jobs:
           tags: |
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push Lambda image to ECR
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deployment/lambda/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.LAMBDA_ECR_REPOSITORY }}:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.LAMBDA_ECR_REPOSITORY }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

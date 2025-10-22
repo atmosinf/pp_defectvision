@@ -156,7 +156,7 @@ docker run --rm -p 8000:8000 \
 
 The FastAPI app exposes a Lambda-compatible handler via `inference.api.handler` (powered by `mangum`). To deploy the same container image to AWS Lambda:
 
-1. Make sure the GitHub Actions workflow has pushed a fresh image to ECR (see “CI builds” below). Note the full image URI (`<account>.dkr.ecr.eu-north-1.amazonaws.com/defectvision-api:latest` or commit SHA).
+1. GitHub Actions publishes a Lambda-ready image on every push to `main` (see `deployment/lambda/Dockerfile`). It’s tagged as `ghcr.io/<repo>/defectvision-api-lambda:<sha>` locally and pushed to ECR as `305784794312.dkr.ecr.eu-north-1.amazonaws.com/defectvision-api-lambda:<sha>` plus `:latest`. Use that URI when creating the Lambda function.
 2. In the AWS console (Lambda → Create function) choose **Container image** and provide that URI. Alternatively, use `aws lambda create-function --package-type Image ...`.
 3. Set environment variables on the Lambda function:
    - `DEFECTVISION_MODEL_PATH` / `DEFECTVISION_CLASS_NAMES_PATH` (e.g. `/tmp/model.pth`, `/tmp/class_names.json`).
@@ -177,7 +177,7 @@ The repository includes `sam/template.yaml`, letting you manage the Lambda + API
      --stack-name defectvision-api \
      --capabilities CAPABILITY_IAM \
      --parameter-overrides \
-       ImageUri=123456789012.dkr.ecr.eu-north-1.amazonaws.com/defectvision-api:latest \
+       ImageUri=123456789012.dkr.ecr.eu-north-1.amazonaws.com/defectvision-api-lambda:latest \
        ModelPath=/tmp/model.pth \
        ClassNamesPath=/tmp/class_names.json \
        ModelS3Uri=s3://defectvision-bucket/checkpoints/model.pth \
