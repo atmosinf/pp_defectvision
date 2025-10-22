@@ -190,6 +190,75 @@ The repository includes `sam/template.yaml`, letting you manage the Lambda + API
 4. Update `sam/samconfig.toml` with your preferred defaults (stack name, artifact bucket, region). The template provides placeholders—ensure the bucket (`defectvision-sam-artifacts` in the file) exists in the target region or replace it with one you control.
 4. Optional: `sam local start-api --parameter-overrides ImageUri=...` spins up the container locally through the SAM runtime for parity testing.
 
+## Deployment playbook & troubleshooting
+
+This section condenses everything we set up so you (or future teammates) can retrace the journey without re‑debugging each step.
+
+### Key files (app & tooling)
+
+- `src/inference/api.py` – FastAPI app plus `handler = Mangum(app)` so Lambda/APIGW can invoke it. Holds the cached `InferenceSession` loader and `/predict` logic.
+- `scripts/serve_fastapi.py` – local development launcher for Uvicorn. Mirrors the command used in the `Makefile`.
+- `tests/test_inference_api.py` – async integration tests hitting `/healthz` and `/predict` using a real sample image. Runs under `pytest` once model artifacts are present.
+- `Makefile` – shortcuts: `serve-api` (Uvicorn with `.env`) and `test-integration` (load `.env`, run pytest with `PYTHONPATH=src`).
+- `.dockerignore` – trims the Docker build context (datasets, notebooks, git metadata) so builds stay fast and don’t leak secrets.
+- `Dockerfile` – “dev/ECS” container. Based on `python:3.12-slim`, installs requirements, copies code, and starts via `docker/entrypoint.sh`.
+- `docker/entrypoint.sh` – boot script for the dev image. Sources an optional env file, downloads model/class names from S3 if `DEFECTVISION_*_S3_URI` is set, then starts Uvicorn.
+- `deployment/lambda/Dockerfile` – Lambda-optimised image. Uses AWS’s `public.ecr.aws/lambda/python:3.12` base image and sets `CMD ["inference.api.handler"]`.
+- `.github/workflows/docker.yml` – CI pipeline. On PRs it only builds for validation; on `main` it builds/pushes both images (`defectvision-api` and `defectvision-api-lambda`) to ECR using OIDC.
+- `sam/template.yaml` – AWS SAM template that deploys the Lambda image behind API Gateway. Parameters let you reuse different image tags and artifact locations.
+- `sam/samconfig.toml` – optional SAM CLI defaults (stack name, region, artifact bucket). Update the bucket name before deploying.
+
+### CI/CD & registry flow
+
+1. GitHub Actions assumes the `AWS_ECR_ROLE_ARN` role via OIDC (trust policy limited to `atmosinf/pp_defectvision` on `main`).
+2. Workflow builds two images:
+   - Dev/ECS image from `Dockerfile` (tagged `defectvision-api:<sha>|latest`).
+   - Lambda image from `deployment/lambda/Dockerfile` (tagged `defectvision-api-lambda:<sha>|latest`, with `oci-mediatypes=false` and `platforms=linux/amd64` so Lambda accepts the manifest).
+3. Images land in their respective ECR repos. Repo policies grant `lambda.amazonaws.com` pull access.
+4. Consumers:
+   - Local dev / ECS / Fargate reuse `defectvision-api`.
+   - Lambda & SAM deployments use `defectvision-api-lambda`.
+
+### Common errors we hit (and how we fixed them)
+
+| Error | Root cause | Fix |
+| --- | --- | --- |
+| `ModuleNotFoundError: No module named 'inference'` | FastAPI run without `PYTHONPATH=src`. | Prefix commands with `PYTHONPATH=src` (see Makefile) or run Uvicorn with `--app-dir src`. |
+| `RuntimeError: Form data requires "python-multipart"` | Missing dependency when launching FastAPI. | Added `python-multipart` to `requirements.txt` and reinstalled. |
+| `Model checkpoint not found at models/model.pth` | Environment variables not exported in the shell. | Source `.env` (or pass `--env-file`); entrypoint now supports S3 download URIs. |
+| `curl: (26) Failed to open/read local data` | Shell split sample image path with spaces. | Quote the full `file=@...` value (README shows correct command). |
+| GitHub Actions: `Could not load credentials` | Workflow lacked `id-token: write`. | Added that permission to the job to enable OIDC. |
+| GitHub Actions: `ecr:GetAuthorizationToken` / `BatchGetImage` denied | IAM role policy incomplete. | Extended inline policy to include `ecr:GetAuthorizationToken`, `ecr:BatchGetImage`, etc. |
+| Lambda creation: “ECR image permissions” | Repo policy missing Lambda principal. | Added `Allow` statement for `lambda.amazonaws.com` to ECR repositories. |
+| Lambda creation: “image manifest … not supported” | Image pushed with OCI media types. | Forced Docker schema v2 (`oci-mediatypes=false`) and `linux/amd64` during CI builds. |
+
+### Manual Lambda deployment checklist
+
+1. Ensure the latest GitHub Actions build completed (both images pushed to ECR).
+2. Confirm `defectvision-api-lambda` repo policy allows Lambda pull and that the IAM role used by Lambda retains `AWSLambdaBasicExecutionRole` plus S3 `GetObject`.
+3. Create the Lambda function pointing to the new image URI (`…/defectvision-api-lambda:latest` or commit SHA).
+4. Configure env vars:
+   - `DEFECTVISION_MODEL_PATH=/tmp/model.pth`
+   - `DEFECTVISION_CLASS_NAMES_PATH=/tmp/class_names.json`
+   - `DEFECTVISION_MODEL_S3_URI`, `DEFECTVISION_CLASS_NAMES_S3_URI` -> actual S3 object URIs.
+5. Invoke `/healthz` via the Lambda test console or through API Gateway/SAM outputs to verify the model downloads and loads correctly.
+
+### SAM deployment recap
+
+Use SAM when you want to version the entire stack:
+```bash
+sam deploy --template-file sam/template.yaml \
+  --guided \
+  --stack-name defectvision-api \
+  --parameter-overrides \
+    ImageUri=305784794312.dkr.ecr.eu-north-1.amazonaws.com/defectvision-api-lambda:latest \
+    ModelPath=/tmp/model.pth \
+    ClassNamesPath=/tmp/class_names.json \
+    ModelS3Uri=s3://<bucket>/path/model.pth \
+    ClassNamesS3Uri=s3://<bucket>/path/class_names.json
+```
+SAM creates the Lambda function, API Gateway endpoint, IAM roles, and outputs the invoke URL (`Outputs.ApiUrl`). The same parameters double as documentation of how the Lambda image expects to find its artifacts.
+
 ### CI builds
 
 GitHub Actions workflow `.github/workflows/docker.yml` builds the image for every PR and push to `main`. PRs run a validation build only. On `main` pushes the workflow assumes an AWS IAM role (supplied via `AWS_ECR_ROLE_ARN`) and pushes the image to Amazon ECR as `<account>.dkr.ecr.<region>.amazonaws.com/defectvision-api` tagged with both the commit SHA and `latest`.
