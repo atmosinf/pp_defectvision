@@ -159,4 +159,5 @@ GitHub Actions workflow `.github/workflows/docker.yml` builds the image for ever
 To enable the push:
 - Create (or reuse) an ECR repository named `defectvision-api` in your target region (default `eu-north-1`—override via the workflow’s `AWS_REGION` env variable).
 - Configure an IAM role that trusts GitHub’s OIDC provider and grants `ecr:BatchCheckLayerAvailability`, `ecr:CompleteLayerUpload`, `ecr:CreateRepository` (optional), `ecr:InitiateLayerUpload`, `ecr:PutImage`, and `ecr:UploadLayerPart`. Store the role ARN in the repo secret `AWS_ECR_ROLE_ARN`.
+- Ensure the workflow (or repo-level default) grants the `id-token: write` permission so GitHub can mint OIDC tokens for the role assumption.
 - If you change the repository name or region, update `ECR_REPOSITORY` / `AWS_REGION` in `.github/workflows/docker.yml`.
