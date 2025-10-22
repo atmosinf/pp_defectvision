@@ -166,6 +166,27 @@ The FastAPI app exposes a Lambda-compatible handler via `inference.api.handler` 
 
 For local testing before deploying, you can run `sam local start-api` or `sam local invoke --event events/sample.json --docker-network host` using the same image.
 
+### Deploying with AWS SAM
+
+The repository includes `sam/template.yaml`, letting you manage the Lambda + API Gateway stack with AWS SAM (Serverless Application Model).
+
+1. [Install the SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) and ensure you have credentials with the necessary IAM permissions (`cloudformation:*`, `iam:PassRole` for execution roles, `lambda:*`, `apigateway:*`, plus S3 read on your model artifacts).
+2. Populate the required parameters when you deploy. Example command:
+   ```bash
+   sam deploy --template-file sam/template.yaml \
+     --stack-name defectvision-api \
+     --capabilities CAPABILITY_IAM \
+     --parameter-overrides \
+       ImageUri=123456789012.dkr.ecr.eu-north-1.amazonaws.com/defectvision-api:latest \
+       ModelPath=/tmp/model.pth \
+       ClassNamesPath=/tmp/class_names.json \
+       ModelS3Uri=s3://defectvision-bucket/checkpoints/model.pth \
+       ClassNamesS3Uri=s3://defectvision-bucket/checkpoints/class_names.json
+   ```
+   Use `--guided` the first time to persist answers in `samconfig.toml`.
+3. After deployment, SAM outputs the API Gateway URL (see `Outputs.ApiUrl`) so you can hit `/healthz` and `/predict`.
+4. Optional: `sam local start-api --parameter-overrides ImageUri=...` spins up the container locally through the SAM runtime for parity testing.
+
 ### CI builds
 
 GitHub Actions workflow `.github/workflows/docker.yml` builds the image for every PR and push to `main`. PRs run a validation build only. On `main` pushes the workflow assumes an AWS IAM role (supplied via `AWS_ECR_ROLE_ARN`) and pushes the image to Amazon ECR as `<account>.dkr.ecr.<region>.amazonaws.com/defectvision-api` tagged with both the commit SHA and `latest`.

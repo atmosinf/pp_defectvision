@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Serverless deployment for the DefectVision FastAPI inference service using a container image.
+
+Parameters:
+  ImageUri:
+    Type: String
+    Description: Full ECR image URI (e.g. 123456789012.dkr.ecr.eu-north-1.amazonaws.com/defectvision-api:latest).
+  ModelPath:
+    Type: String
+    Default: /tmp/model.pth
+    Description: Filesystem path inside the Lambda container where the model checkpoint will be stored.
+  ClassNamesPath:
+    Type: String
+    Default: /tmp/class_names.json
+    Description: Filesystem path inside the Lambda container for the class names JSON.
+  ModelS3Uri:
+    Type: String
+    Default: ''
+    Description: Optional s3:// URI to download the model checkpoint at cold start.
+  ClassNamesS3Uri:
+    Type: String
+    Default: ''
+    Description: Optional s3:// URI to download class names at cold start.
+
+Globals:
+  Api:
+    EndpointConfiguration: REGIONAL
+    BinaryMediaTypes:
+      - application/octet-stream
+      - multipart/form-data
+
+Resources:
+  InferenceApi:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      ImageUri: !Ref ImageUri
+      Timeout: 60
+      MemorySize: 4096
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          DEFECTVISION_MODEL_PATH: !Ref ModelPath
+          DEFECTVISION_CLASS_NAMES_PATH: !Ref ClassNamesPath
+          DEFECTVISION_MODEL_S3_URI: !Ref ModelS3Uri
+          DEFECTVISION_CLASS_NAMES_S3_URI: !Ref ClassNamesS3Uri
+      Events:
+        ApiProxy:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+        ApiRoot:
+          Type: Api
+          Properties:
+            Path: /
+            Method: ANY
+
+Outputs:
+  ApiUrl:
+    Description: Invoke URL for the deployed API Gateway stage.
+    Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod'
+  FunctionName:
+    Description: Name of the Lambda function created for the inference API.
+    Value: !Ref InferenceApi
