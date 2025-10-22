@@ -147,6 +147,15 @@ docker run --rm -p 8000:8000 \
   defectvision-api
 ```
 
-- `docker/entrypoint.sh` loads `.env` automatically (or set `ENV_FILE` to a different path).
+- `docker run --env-file .env` injects each variable into the container; the file itself stays on the host. To have the entrypoint source a file, bind-mount it and set `ENV_FILE=/app/.env`.
 - By default the image looks for `models/model.pth` and `models/class_names.json` inside `/app/models`. Mount a different directory or override `DEFECTVISION_MODEL_PATH` / `DEFECTVISION_CLASS_NAMES_PATH` when you `docker run`.
 - Override `PORT`, `APP_MODULE`, or `APP_DIR` if you need to customise the Uvicorn launch command.
+
+### CI builds
+
+GitHub Actions workflow `.github/workflows/docker.yml` builds the image for every PR and push to `main`. PRs run a validation build only. On `main` pushes the workflow assumes an AWS IAM role (supplied via `AWS_ECR_ROLE_ARN`) and pushes the image to Amazon ECR as `<account>.dkr.ecr.<region>.amazonaws.com/defectvision-api` tagged with both the commit SHA and `latest`.
+
+To enable the push:
+- Create (or reuse) an ECR repository named `defectvision-api` in your target region (default `eu-north-1`—override via the workflow’s `AWS_REGION` env variable).
+- Configure an IAM role that trusts GitHub’s OIDC provider and grants `ecr:BatchCheckLayerAvailability`, `ecr:CompleteLayerUpload`, `ecr:CreateRepository` (optional), `ecr:InitiateLayerUpload`, `ecr:PutImage`, and `ecr:UploadLayerPart`. Store the role ARN in the repo secret `AWS_ECR_ROLE_ARN`.
+- If you change the repository name or region, update `ECR_REPOSITORY` / `AWS_REGION` in `.github/workflows/docker.yml`.
