@@ -132,3 +132,21 @@ pip install -r requirements-dev.txt
 make test-integration
 ```
 The test suite hits `/healthz` and `/predict` using a sample image to ensure the service loads the checkpoint and produces the expected prediction.
+
+## Containerising the API
+
+Build the image (requires internet access for Python wheels):
+```bash
+docker build -t defectvision-api .
+```
+
+Run the container, forwarding port 8000 and injecting your environment variables:
+```bash
+docker run --rm -p 8000:8000 \
+  --env-file .env \
+  defectvision-api
+```
+
+- `docker/entrypoint.sh` loads `.env` automatically (or set `ENV_FILE` to a different path).
+- By default the image looks for `models/model.pth` and `models/class_names.json` inside `/app/models`. Mount a different directory or override `DEFECTVISION_MODEL_PATH` / `DEFECTVISION_CLASS_NAMES_PATH` when you `docker run`.
+- Override `PORT`, `APP_MODULE`, or `APP_DIR` if you need to customise the Uvicorn launch command.
