@@ -164,6 +164,8 @@ The FastAPI app exposes a Lambda-compatible handler via `inference.api.handler` 
 4. Update the Lambda execution role to include CloudWatch logging, S3 access, and (if needed) VPC permissions.
 5. Optionally front the function with API Gateway or Lambda Function URLs for HTTPS access. Because the app uses `Mangum`, FastAPI routes work untouched.
 
+Lambda only supports Docker manifest schema v2 images. The GitHub workflow sets `oci-mediatypes=false` when pushing the Lambda artifact so the manifest is compatible; if you build locally, add `--output type=image,oci-mediatypes=false` (or the equivalent) when you push.
+
 For local testing before deploying, you can run `sam local start-api` or `sam local invoke --event events/sample.json --docker-network host` using the same image.
 
 ### Deploying with AWS SAM
