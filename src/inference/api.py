@@ -13,6 +13,11 @@ from pydantic import BaseModel
 
 from inference import InferenceSession, load_session
 
+try:
+    from mangum import Mangum
+except ImportError:  # pragma: no cover - optional dependency for AWS Lambda
+    Mangum = None  # type: ignore[misc]
+
 DEFAULT_MODEL_PATH = Path("models/model.pth")
 MODEL_PATH_ENV = "DEFECTVISION_MODEL_PATH"
 CLASS_NAMES_ENV = "DEFECTVISION_CLASS_NAMES_PATH"
@@ -61,6 +66,10 @@ def get_session() -> InferenceSession:
 
 
 app = FastAPI(title="DefectVision Inference API", version="1.0.0")
+
+
+if Mangum is not None:
+    handler = Mangum(app)
 
 
 @app.get("/healthz")

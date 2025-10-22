@@ -152,6 +152,20 @@ docker run --rm -p 8000:8000 \
 - By default the API expects `/app/models/model.pth` and `/app/models/class_names.json`. Override `DEFECTVISION_MODEL_PATH` / `DEFECTVISION_CLASS_NAMES_PATH` if you store them elsewhere.
 - Override `PORT`, `APP_MODULE`, or `APP_DIR` if you need to customise the Uvicorn launch command.
 
+### Lambda deployment
+
+The FastAPI app exposes a Lambda-compatible handler via `inference.api.handler` (powered by `mangum`). To deploy the same container image to AWS Lambda:
+
+1. Make sure the GitHub Actions workflow has pushed a fresh image to ECR (see “CI builds” below). Note the full image URI (`<account>.dkr.ecr.eu-north-1.amazonaws.com/defectvision-api:latest` or commit SHA).
+2. In the AWS console (Lambda → Create function) choose **Container image** and provide that URI. Alternatively, use `aws lambda create-function --package-type Image ...`.
+3. Set environment variables on the Lambda function:
+   - `DEFECTVISION_MODEL_PATH` / `DEFECTVISION_CLASS_NAMES_PATH` (e.g. `/tmp/model.pth`, `/tmp/class_names.json`).
+   - Either mount the artifacts via a Lambda layer/EFS, or supply `DEFECTVISION_MODEL_S3_URI` / `DEFECTVISION_CLASS_NAMES_S3_URI` so the entrypoint downloads them to those paths at cold start. Grant the function’s execution role `s3:GetObject` on the artifact bucket.
+4. Update the Lambda execution role to include CloudWatch logging, S3 access, and (if needed) VPC permissions.
+5. Optionally front the function with API Gateway or Lambda Function URLs for HTTPS access. Because the app uses `Mangum`, FastAPI routes work untouched.
+
+For local testing before deploying, you can run `sam local start-api` or `sam local invoke --event events/sample.json --docker-network host` using the same image.
+
 ### CI builds
 
 GitHub Actions workflow `.github/workflows/docker.yml` builds the image for every PR and push to `main`. PRs run a validation build only. On `main` pushes the workflow assumes an AWS IAM role (supplied via `AWS_ECR_ROLE_ARN`) and pushes the image to Amazon ECR as `<account>.dkr.ecr.<region>.amazonaws.com/defectvision-api` tagged with both the commit SHA and `latest`.
