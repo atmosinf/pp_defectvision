@@ -191,7 +191,15 @@ The repository includes `sam/template.yaml`, letting you manage the Lambda + API
 
 ## Deployment playbook & troubleshooting
 
-This section condenses everything we set up so you (or future teammates) can retrace the journey without re‑debugging each step.
+This section condenses everything we set up so you (or future teammates) can retrace the journey without re-debugging each step.
+
+### Challenges & fixes
+
+- **Model downloads during Lambda cold start** – Pulling `model.pth`/`class_names.json` from S3 in the entrypoint exceeded Lambda’s 10s init limit and required IAM setup, so we now download those files during the GitHub Actions build and bake them into the Lambda image. Runtime downloads are optional (only when S3 URIs are provided).
+- **OCI vs Docker manifests** – Lambda accepts only Docker schema v2 manifests; BuildKit produced OCI by default. We disabled BuildKit (`DOCKER_BUILDKIT=0`) for the Lambda build/push to ensure Docker schema v2.
+- **IAM permissions** – Both the GitHub Actions role (build-time downloads) and the Lambda execution role (optional runtime downloads) needed explicit `s3:GetObject` on the artifact paths. Missing policies caused 403 errors until added.
+- **Environment defaults** – Leaving `DEFECTVISION_MODEL_S3_URI` set forced runtime downloads into `/tmp`. Removing them (or pointing to `/var/task/models/...`) ensures the baked artifacts are used by default.
+- **Direct Lambda testing** – Mangum requires API Gateway-style events; direct `aws lambda invoke --payload '{}'` fails. Use a full proxy event payload or test via API Gateway to simulate `GET /healthz` and `POST /predict`.
 
 ### Key files (app & tooling)
 
