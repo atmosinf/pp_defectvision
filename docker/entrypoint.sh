@@ -14,6 +14,11 @@ PORT="${PORT:-8000}"
 APP_MODULE="${APP_MODULE:-inference.api:app}"
 APP_DIR="${APP_DIR:-/app/src}"
 
+echo "[Entrypoint] Starting at $(date -Is)"
+echo "[Entrypoint] AWS_LAMBDA_RUNTIME_API=${AWS_LAMBDA_RUNTIME_API:-unset}"
+echo "[Entrypoint] DEFECTVISION_MODEL_S3_URI=${DEFECTVISION_MODEL_S3_URI:-unset}"
+echo "[Entrypoint] DEFECTVISION_CLASS_NAMES_S3_URI=${DEFECTVISION_CLASS_NAMES_S3_URI:-unset}"
+
 # Default checkpoint location inside the container so the API can start with baked-in models.
 if [[ -z "${DEFECTVISION_MODEL_PATH:-}" ]]; then
   if [[ -n "${AWS_LAMBDA_RUNTIME_API:-}" ]]; then
@@ -39,6 +44,7 @@ ensure_parent_dir() {
 download_s3_object() {
   local uri="$1"
   local destination="$2"
+  echo "[Entrypoint] Downloading ${uri} -> ${destination}"
   S3_URI="$uri" DEST_PATH="$destination" python - <<'PY'
 import os
 import sys
