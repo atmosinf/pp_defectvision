@@ -63,15 +63,12 @@ jobs:
 
       - name: Build and push Lambda image to ECR
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: deployment/lambda/Dockerfile
-          platforms: linux/amd64
-          outputs: type=registry,oci-mediatypes=false,provenance=false,sbom=false
-          push: true
-          tags: |
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.LAMBDA_ECR_REPOSITORY }}:${{ github.sha }}
+        run: |
+          export DOCKER_BUILDKIT=0
+          docker build --platform linux/amd64 \
+            -f deployment/lambda/Dockerfile \
+            -t ${{ steps.login-ecr.outputs.registry }}/${{ env.LAMBDA_ECR_REPOSITORY }}:${{ github.sha }} .
+          docker tag ${{ steps.login-ecr.outputs.registry }}/${{ env.LAMBDA_ECR_REPOSITORY }}:${{ github.sha }} \
             ${{ steps.login-ecr.outputs.registry }}/${{ env.LAMBDA_ECR_REPOSITORY }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.LAMBDA_ECR_REPOSITORY }}:${{ github.sha }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.LAMBDA_ECR_REPOSITORY }}:latest
