@@ -270,3 +270,4 @@ To enable the push:
 - Ensure the workflow (or repo-level default) grants the `id-token: write` permission so GitHub can mint OIDC tokens for the role assumption.
 - If you change the repository name or region, update `ECR_REPOSITORY` / `AWS_REGION` in `.github/workflows/docker.yml`.
 ..
+..
