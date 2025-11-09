@@ -156,7 +156,7 @@ docker run --rm -p 8000:8000 \
 
 The FastAPI app exposes a Lambda-compatible handler via `inference.api.handler` (powered by `mangum`). To deploy the same container image to AWS Lambda:
 
-1. GitHub Actions publishes a Lambda-ready image on every push to `main` (see `deployment/lambda/Dockerfile`). It’s tagged as `ghcr.io/<repo>/defectvision-api-lambda:<sha>` locally and pushed to ECR as `305784794312.dkr.ecr.eu-north-1.amazonaws.com/defectvision-api-lambda:<sha>` plus `:latest`. Use that URI when creating the Lambda function.
+1. GitHub Actions publishes a Lambda-ready image on every push to `main` (see `deployment/lambda/Dockerfile`). It’s tagged as `ghcr.io/<repo>/defectvision-api-lambda:<sha>` locally and pushed to ECR as `305784794312.dkr.ecr.eu-north-1.amazonaws.com/defectvision-api-lambda:<sha>` plus `:latest`. Use that URI when creating the Lambda function. The workflow disables BuildKit when building the Lambda image to avoid OCI manifests; if you build manually, set `DOCKER_BUILDKIT=0` or run `docker buildx build --output type=registry,oci-mediatypes=false,provenance=false,sbom=false` so the manifest stays compatible with Lambda.
 2. In the AWS console (Lambda → Create function) choose **Container image** and provide that URI. Alternatively, use `aws lambda create-function --package-type Image ...`.
 3. Set environment variables on the Lambda function:
    - `DEFECTVISION_MODEL_PATH` / `DEFECTVISION_CLASS_NAMES_PATH` (e.g. `/tmp/model.pth`, `/tmp/class_names.json`).
@@ -164,7 +164,7 @@ The FastAPI app exposes a Lambda-compatible handler via `inference.api.handler` 
 4. Update the Lambda execution role to include CloudWatch logging, S3 access, and (if needed) VPC permissions.
 5. Optionally front the function with API Gateway or Lambda Function URLs for HTTPS access. Because the app uses `Mangum`, FastAPI routes work untouched.
 
-Lambda only supports Docker manifest schema v2 images. The GitHub workflow sets `oci-mediatypes=false` when pushing the Lambda artifact so the manifest is compatible; if you build locally, add `--output type=image,oci-mediatypes=false` (or the equivalent) when you push.
+Lambda only supports Docker manifest schema v2 images. The GitHub workflow disables BuildKit (`DOCKER_BUILDKIT=0`) and pushes with the classic Docker manifest for the Lambda image; if you build locally, do the same (`DOCKER_BUILDKIT=0 docker build ...` or `docker buildx build --output type=registry,oci-mediatypes=false,provenance=false,sbom=false`).
 
 For local testing before deploying, you can run `sam local start-api` or `sam local invoke --event events/sample.json --docker-network host` using the same image.
 
@@ -213,7 +213,7 @@ This section condenses everything we set up so you (or future teammates) can ret
 1. GitHub Actions assumes the `AWS_ECR_ROLE_ARN` role via OIDC (trust policy limited to `atmosinf/pp_defectvision` on `main`).
 2. Workflow builds two images:
    - Dev/ECS image from `Dockerfile` (tagged `defectvision-api:<sha>|latest`).
-   - Lambda image from `deployment/lambda/Dockerfile` (tagged `defectvision-api-lambda:<sha>|latest`, with `oci-mediatypes=false` and `platforms=linux/amd64` so Lambda accepts the manifest).
+   - Lambda image from `deployment/lambda/Dockerfile` (tagged `defectvision-api-lambda:<sha>|latest`). BuildKit is disabled (`DOCKER_BUILDKIT=0`) and we push via classic `docker build/push` so the manifest is Docker schema v2 (required by Lambda).
 3. Images land in their respective ECR repos. Repo policies grant `lambda.amazonaws.com` pull access.
 4. Consumers:
    - Local dev / ECS / Fargate reuse `defectvision-api`.
@@ -230,7 +230,7 @@ This section condenses everything we set up so you (or future teammates) can ret
 | GitHub Actions: `Could not load credentials` | Workflow lacked `id-token: write`. | Added that permission to the job to enable OIDC. |
 | GitHub Actions: `ecr:GetAuthorizationToken` / `BatchGetImage` denied | IAM role policy incomplete. | Extended inline policy to include `ecr:GetAuthorizationToken`, `ecr:BatchGetImage`, etc. |
 | Lambda creation: “ECR image permissions” | Repo policy missing Lambda principal. | Added `Allow` statement for `lambda.amazonaws.com` to ECR repositories. |
-| Lambda creation: “image manifest … not supported” | Image pushed with OCI media types. | Forced Docker schema v2 (`oci-mediatypes=false`) and `linux/amd64` during CI builds. |
+| Lambda creation: “image manifest … not supported” | Image pushed with OCI media types. | Disabled BuildKit (`DOCKER_BUILDKIT=0`) and used classic `docker build/push` for the Lambda image (or `docker buildx build --output type=registry,oci-mediatypes=false,provenance=false,sbom=false`). |
 
 ### Manual Lambda deployment checklist
 
