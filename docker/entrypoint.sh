@@ -78,6 +78,9 @@ if [[ -n "${DEFECTVISION_CLASS_NAMES_S3_URI:-}" ]]; then
   download_s3_object "${DEFECTVISION_CLASS_NAMES_S3_URI}" "${DEFECTVISION_CLASS_NAMES_PATH}"
 fi
 
+echo "Model checkpoint: ${DEFECTVISION_MODEL_PATH} ($(ls -lh "${DEFECTVISION_MODEL_PATH}" 2>/dev/null || echo 'missing'))"
+echo "Class names: ${DEFECTVISION_CLASS_NAMES_PATH} ($(ls -lh "${DEFECTVISION_CLASS_NAMES_PATH}" 2>/dev/null || echo 'missing'))"
+
 if [[ ! -f "${DEFECTVISION_MODEL_PATH}" ]]; then
   echo "Error: model checkpoint not found at ${DEFECTVISION_MODEL_PATH}" >&2
   exit 1
