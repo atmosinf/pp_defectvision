@@ -16,11 +16,19 @@ APP_DIR="${APP_DIR:-/app/src}"
 
 # Default checkpoint location inside the container so the API can start with baked-in models.
 if [[ -z "${DEFECTVISION_MODEL_PATH:-}" ]]; then
-  export DEFECTVISION_MODEL_PATH="/app/models/model.pth"
+  if [[ -n "${AWS_LAMBDA_RUNTIME_API:-}" ]]; then
+    export DEFECTVISION_MODEL_PATH="/tmp/model.pth"
+  else
+    export DEFECTVISION_MODEL_PATH="/app/models/model.pth"
+  fi
 fi
 
 if [[ -z "${DEFECTVISION_CLASS_NAMES_PATH:-}" ]]; then
-  export DEFECTVISION_CLASS_NAMES_PATH="/app/models/class_names.json"
+  if [[ -n "${AWS_LAMBDA_RUNTIME_API:-}" ]]; then
+    export DEFECTVISION_CLASS_NAMES_PATH="/tmp/class_names.json"
+  else
+    export DEFECTVISION_CLASS_NAMES_PATH="/app/models/class_names.json"
+  fi
 fi
 
 ensure_parent_dir() {

@@ -13,7 +13,7 @@ s3_bucket = "defectvision-sam-artifacts"
 s3_prefix = "defectvision-api"
 image_repositories = []
 resolve_s3 = true
-parameter_overrides = "ImageUri=\"305784794312.dkr.ecr.eu-north-1.amazonaws.com/defectvision-api-lambda:ef6297da4fced9c7fe7e5f675b5d607924f35ff0\" ModelPath=\"/tmp/model.pth\" ClassNamesPath=\"/tmp/class_names.json\" ModelS3Uri=\"s3://defectvision-bucket/defectvision-train-20251012-195857/output/model.pth\" ClassNamesS3Uri=\"s3://defectvision-bucket/defectvision-train-20251012-195857/output/class_names.json\""
+parameter_overrides = "ImageUri=\"305784794312.dkr.ecr.eu-north-1.amazonaws.com/defectvision-api-lambda:0aa20aafc515ab610dc45fea875970391e921ccd\" ModelPath=\"/tmp/model.pth\" ClassNamesPath=\"/tmp/class_names.json\" ModelS3Uri=\"s3://defectvision-bucket/defectvision-train-20251012-195857/output/model.pth\" ClassNamesS3Uri=\"s3://defectvision-bucket/defectvision-train-20251012-195857/output/class_names.json\""
 
 [default.global.parameters]
 region = "eu-north-1"
