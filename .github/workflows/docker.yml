@@ -12,6 +12,8 @@ env:
   AWS_REGION: eu-north-1
   ECR_REPOSITORY: defectvision-api
   LAMBDA_ECR_REPOSITORY: defectvision-api-lambda
+  MODEL_S3_URI: s3://defectvision-bucket/defectvision-train-20251012-195857/output/model.pth
+  CLASS_NAMES_S3_URI: s3://defectvision-bucket/defectvision-train-20251012-195857/output/class_names.json
 
 jobs:
   build:
@@ -42,6 +44,13 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ECR_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download Lambda model artifacts
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        run: |
+          mkdir -p models
+          aws s3 cp "$MODEL_S3_URI" models/model.pth
+          aws s3 cp "$CLASS_NAMES_S3_URI" models/class_names.json
 
       - name: Login to Amazon ECR
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}

@@ -20,20 +20,31 @@ echo "[Entrypoint] DEFECTVISION_MODEL_S3_URI=${DEFECTVISION_MODEL_S3_URI:-unset}
 echo "[Entrypoint] DEFECTVISION_CLASS_NAMES_S3_URI=${DEFECTVISION_CLASS_NAMES_S3_URI:-unset}"
 
 # Default checkpoint location inside the container so the API can start with baked-in models.
-if [[ -z "${DEFECTVISION_MODEL_PATH:-}" ]]; then
-  if [[ -n "${AWS_LAMBDA_RUNTIME_API:-}" ]]; then
-    export DEFECTVISION_MODEL_PATH="/tmp/model.pth"
-  else
-    export DEFECTVISION_MODEL_PATH="/app/models/model.pth"
-  fi
-fi
+set_default_paths() {
+  local baked_model="$1"
+  local baked_class="$2"
 
-if [[ -z "${DEFECTVISION_CLASS_NAMES_PATH:-}" ]]; then
-  if [[ -n "${AWS_LAMBDA_RUNTIME_API:-}" ]]; then
-    export DEFECTVISION_CLASS_NAMES_PATH="/tmp/class_names.json"
-  else
-    export DEFECTVISION_CLASS_NAMES_PATH="/app/models/class_names.json"
+  if [[ -z "${DEFECTVISION_MODEL_PATH:-}" ]]; then
+    if [[ -n "${AWS_LAMBDA_RUNTIME_API:-}" && -n "${DEFECTVISION_MODEL_S3_URI:-}" ]]; then
+      export DEFECTVISION_MODEL_PATH="/tmp/model.pth"
+    else
+      export DEFECTVISION_MODEL_PATH="$baked_model"
+    fi
   fi
+
+  if [[ -z "${DEFECTVISION_CLASS_NAMES_PATH:-}" ]]; then
+    if [[ -n "${AWS_LAMBDA_RUNTIME_API:-}" && -n "${DEFECTVISION_CLASS_NAMES_S3_URI:-}" ]]; then
+      export DEFECTVISION_CLASS_NAMES_PATH="/tmp/class_names.json"
+    else
+      export DEFECTVISION_CLASS_NAMES_PATH="$baked_class"
+    fi
+  fi
+}
+
+if [[ -n "${AWS_LAMBDA_RUNTIME_API:-}" ]]; then
+  set_default_paths "/var/task/models/model.pth" "/var/task/models/class_names.json"
+else
+  set_default_paths "/app/models/model.pth" "/app/models/class_names.json"
 fi
 
 ensure_parent_dir() {

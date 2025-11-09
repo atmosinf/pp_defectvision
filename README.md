@@ -149,6 +149,7 @@ docker run --rm -p 8000:8000 \
 
 - `docker run --env-file .env` injects each variable into the container; the file itself stays on the host. To have the entrypoint source a file, bind-mount it and set `ENV_FILE=/app/.env`.
 - The image does **not** bundle model artifacts. Provide them by either bind-mounting a local directory (e.g. `-v "$PWD/models/.../output:/app/models:ro"`) or exporting `DEFECTVISION_MODEL_S3_URI` / `DEFECTVISION_CLASS_NAMES_S3_URI` so the entrypoint can download from S3 at boot (requires valid AWS credentials in the container).
+- When building the Lambda image locally (or replicating CI), download the model artifacts first: `aws s3 cp s3://defectvision-bucket/.../model.pth models/model.pth` and `aws s3 cp s3://defectvision-bucket/.../class_names.json models/class_names.json`, then run `docker build -f deployment/lambda/Dockerfile ...`.
 - By default the API expects `/app/models/model.pth` and `/app/models/class_names.json`. Override `DEFECTVISION_MODEL_PATH` / `DEFECTVISION_CLASS_NAMES_PATH` if you store them elsewhere.
 - Override `PORT`, `APP_MODULE`, or `APP_DIR` if you need to customise the Uvicorn launch command.
 
@@ -156,13 +157,13 @@ docker run --rm -p 8000:8000 \
 
 The FastAPI app exposes a Lambda-compatible handler via `inference.api.handler` (powered by `mangum`). To deploy the same container image to AWS Lambda:
 
-1. GitHub Actions publishes a Lambda-ready image on every push to `main` (see `deployment/lambda/Dockerfile`). It’s tagged as `ghcr.io/<repo>/defectvision-api-lambda:<sha>` locally and pushed to ECR as `305784794312.dkr.ecr.eu-north-1.amazonaws.com/defectvision-api-lambda:<sha>` plus `:latest`. Use that URI when creating the Lambda function. The workflow disables BuildKit when building the Lambda image to avoid OCI manifests; if you build manually, set `DOCKER_BUILDKIT=0` or run `docker buildx build --output type=registry,oci-mediatypes=false,provenance=false,sbom=false` so the manifest stays compatible with Lambda.
+1. GitHub Actions publishes a Lambda-ready image on every push to `main` (see `deployment/lambda/Dockerfile`). It’s tagged as `ghcr.io/<repo>/defectvision-api-lambda:<sha>` locally and pushed to ECR as `305784794312.dkr.ecr.eu-north-1.amazonaws.com/defectvision-api-lambda:<sha>` plus `:latest`. During the build the workflow pulls `model.pth` / `class_names.json` from S3 (using the configured AWS role) and bakes them into the image, so Lambda doesn’t download them on cold start. If you build manually, run the same `aws s3 cp …` commands before `docker build`.
 2. In the AWS console (Lambda → Create function) choose **Container image** and provide that URI. Alternatively, use `aws lambda create-function --package-type Image ...`.
 3. Set environment variables on the Lambda function:
    - `DEFECTVISION_MODEL_PATH` / `DEFECTVISION_CLASS_NAMES_PATH` (e.g. `/tmp/model.pth`, `/tmp/class_names.json`).
    - Either mount the artifacts via a Lambda layer/EFS, or supply `DEFECTVISION_MODEL_S3_URI` / `DEFECTVISION_CLASS_NAMES_S3_URI` so the entrypoint downloads them to those paths at cold start. Grant the function’s execution role `s3:GetObject` on the artifact bucket.
 4. Update the Lambda execution role to include CloudWatch logging, S3 access, and (if needed) VPC permissions.
-5. Optionally front the function with API Gateway or Lambda Function URLs for HTTPS access. Because the app uses `Mangum`, FastAPI routes work untouched.
+5. Optionally front the function with API Gateway or Lambda Function URLs for HTTPS access. Because the app uses `Mangum`, FastAPI routes work untouched. If you need to override the baked-in checkpoint, set `DEFECTVISION_MODEL_S3_URI` / `DEFECTVISION_CLASS_NAMES_S3_URI` and the entrypoint will download fresh copies into `/tmp` before starting.
 
 Lambda only supports Docker manifest schema v2 images. The GitHub workflow disables BuildKit (`DOCKER_BUILDKIT=0`) and pushes with the classic Docker manifest for the Lambda image; if you build locally, do the same (`DOCKER_BUILDKIT=0 docker build ...` or `docker buildx build --output type=registry,oci-mediatypes=false,provenance=false,sbom=false`).
 
@@ -213,7 +214,7 @@ This section condenses everything we set up so you (or future teammates) can ret
 1. GitHub Actions assumes the `AWS_ECR_ROLE_ARN` role via OIDC (trust policy limited to `atmosinf/pp_defectvision` on `main`).
 2. Workflow builds two images:
    - Dev/ECS image from `Dockerfile` (tagged `defectvision-api:<sha>|latest`).
-   - Lambda image from `deployment/lambda/Dockerfile` (tagged `defectvision-api-lambda:<sha>|latest`). BuildKit is disabled (`DOCKER_BUILDKIT=0`) and we push via classic `docker build/push` so the manifest is Docker schema v2 (required by Lambda).
+   - Lambda image from `deployment/lambda/Dockerfile` (tagged `defectvision-api-lambda:<sha>|latest`). Before the Lambda build the workflow downloads `model.pth` / `class_names.json` from S3 into the build context, then disables BuildKit (`DOCKER_BUILDKIT=0`) so the resulting manifest is Docker schema v2 (required by Lambda).
 3. Images land in their respective ECR repos. Repo policies grant `lambda.amazonaws.com` pull access.
 4. Consumers:
    - Local dev / ECS / Fargate reuse `defectvision-api`.

@@ -14,7 +14,10 @@ RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
 COPY src ./src
+COPY models ./models
 
-ENV PYTHONPATH=/var/task/src
+ENV PYTHONPATH=/var/task/src \
+    DEFECTVISION_MODEL_PATH=/var/task/models/model.pth \
+    DEFECTVISION_CLASS_NAMES_PATH=/var/task/models/class_names.json
 
 CMD ["inference.api.handler"]
