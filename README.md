@@ -178,7 +178,7 @@ The repository includes `sam/template.yaml`, letting you manage the Lambda + API
    sam deploy --template-file sam/template.yaml \
      --stack-name defectvision-api \
      --capabilities CAPABILITY_IAM \
-     --parameter-overrides \
+      --parameter-overrides \
        ImageUri=123456789012.dkr.ecr.eu-north-1.amazonaws.com/defectvision-api-lambda:latest \
        ModelPath=/tmp/model.pth \
        ClassNamesPath=/tmp/class_names.json \

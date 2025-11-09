@@ -6,3 +6,7 @@ __pycache__/
 test_images/
 *.tar.gz
 *.pth
+sam-installation.zip
+sam-install/
+aws/
+awscliv2.zip

@@ -1,9 +1,19 @@
+version = 0.1
+
+[default]
+
+[default.deploy]
+
 [default.deploy.parameters]
 stack_name = "defectvision-api"
-region = "eu-north-1"
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 fail_on_empty_changeset = false
 s3_bucket = "defectvision-sam-artifacts"
-s3_prefix = "lambda-deployments"
+s3_prefix = "defectvision-api"
 image_repositories = []
+resolve_s3 = true
+parameter_overrides = "ImageUri=\"305784794312.dkr.ecr.eu-north-1.amazonaws.com/defectvision-api-lambda:88bedbd07c1b14dea59e14766451add8e8209a77\" ModelPath=\"/tmp/model.pth\" ClassNamesPath=\"/tmp/class_names.json\" ModelS3Uri=\"s3://defectvision-bucket/defectvision-train-20251012-195857/output/model.pth\" ClassNamesS3Uri=\"s3://defectvision-bucket/defectvision-train-20251012-195857/output/class_names.json\""
+
+[default.global.parameters]
+region = "eu-north-1"

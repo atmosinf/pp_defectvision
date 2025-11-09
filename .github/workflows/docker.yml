@@ -68,10 +68,10 @@ jobs:
           context: .
           file: deployment/lambda/Dockerfile
           platforms: linux/amd64
+          outputs: type=registry,oci-mediatypes=false,provenance=false,sbom=false
           push: true
           tags: |
             ${{ steps.login-ecr.outputs.registry }}/${{ env.LAMBDA_ECR_REPOSITORY }}:${{ github.sha }}
             ${{ steps.login-ecr.outputs.registry }}/${{ env.LAMBDA_ECR_REPOSITORY }}:latest
-          oci-mediatypes: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
